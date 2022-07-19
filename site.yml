@@ -1,0 +1,56 @@
+- hosts: squid
+  gather_facts: no
+  vars:
+    squid_dirs:
+        - /srv/podman/squid/log
+        - /srv/podman/squid/cache
+    squid_image: stackhpc/squid:4.15
+
+  tasks:
+    - name: Install software
+      dnf:
+        name:
+          - podman
+          - git
+      become: yes
+
+    # - name: Download containerised squid repo
+    #   ansible.builtin.git:
+    #     dest: /home/rocky/podman-squid
+    #     repo: https://github.com/stackhpc/docker-squid.git
+    #   tags: squid
+
+    - name: Create host directories
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop: "{{ squid_dirs }}"
+      become: yes
+    
+    - name: Set selinux security context
+      shell:
+        cmd: "chcon -Rt svirt_sandbox_file_t {{ item }}"
+      loop: "{{ squid_dirs }}"
+      become: yes
+    
+    # - name: Build container image
+    #   containers.podman.podman_image:
+    #     name: "{{ squid_image }}"
+    #     path: /home/rocky/podman-squid
+    #   become: yes
+
+    - name: Check for existing container
+      tags: debug
+      shell:
+        cmd: podman ps --format json
+      register: podman_ps
+      changed_when: false
+      become: yes
+
+    - name: Run squid
+      # can't use containers.podman.podman_container with podman v4 at least at this ansible version
+      # NB uses host networking as MTU < 1500
+      shell:
+        cmd: podman run --name squid -d --network host --restart=always --publish 3128:3128 --volume /srv/podman/squid/log:/var/log/squid --volume /srv/podman/squid/cache:/var/spool/squid {{ squid_image }}
+      when: "squid_image not in (podman_ps.stdout | from_json | map(attribute='Image'))"
+      become: yes
