@@ -12,6 +12,8 @@
         name:
           - podman
           - git
+          - epel-release
+          - calamaris
       become: yes
 
     # - name: Download containerised squid repo

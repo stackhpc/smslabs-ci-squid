@@ -9,3 +9,7 @@ terraform init
 terraform apply
 ansible-playbook -i inventory site.yml
 ```
+
+# Using calamaris for stats
+
+ssh into the squid node and run `sudo cat /srv/podman/squid/log/access.log | calamaris`
